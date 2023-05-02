@@ -126,7 +126,7 @@ static UIColor *disabledColor;
     _selectedButton.userInteractionEnabled = NO;
     [self addSubview:_selectedButton];
     
-    _progressView = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
+    _progressView = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     [_progressView setFrame:self.bounds];
     [_progressView setBackgroundColor:[UIColor colorWithWhite:0.3 alpha:0.5]];
     _progressView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;

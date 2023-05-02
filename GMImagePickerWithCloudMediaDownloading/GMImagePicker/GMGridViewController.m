@@ -70,6 +70,36 @@ NSString * const GMGridViewCellIdentifier = @"GMGridViewCellIdentifier";
   UICollectionViewFlowLayout *landscapeLayout;
 }
 
+- (BOOL)isLandscape
+{
+    UIWindow *firstWindow = [[[UIApplication sharedApplication] windows] firstObject];
+    if (firstWindow == nil) { return NO; }
+    
+    UIWindowScene *windowScene = firstWindow.windowScene;
+    if (windowScene == nil) { return NO; }
+    return UIInterfaceOrientationIsLandscape(windowScene.interfaceOrientation);
+    
+}
+
+- (UIInterfaceOrientation)interfaceOrientationFromScreen {
+    UIScreen *screen = self.view.window.screen;
+    if (screen == nil) {
+        return UIInterfaceOrientationPortrait;
+    }
+    CGPoint point = CGPointZero;
+    point = [screen.coordinateSpace convertPoint:point toCoordinateSpace:screen.fixedCoordinateSpace];
+    if (point.x == 0.0f && point.y == 0.0f)  {
+        return UIInterfaceOrientationPortrait;
+    } else if (point.x > 0.0f && point.y > 0.0f) {
+        return UIInterfaceOrientationPortraitUpsideDown;
+    } else if (point.x > 0) {
+        return UIInterfaceOrientationLandscapeLeft;
+    } else if (point.y > 0) {
+        return UIInterfaceOrientationLandscapeRight;
+    }
+    return UIInterfaceOrientationPortrait;
+}
+
 -(id)initWithPicker:(GMImagePickerController *)picker
 {
   _thumbnailRequestOptions = [PHImageRequestOptions new];
@@ -81,14 +111,15 @@ NSString * const GMGridViewCellIdentifier = @"GMGridViewCellIdentifier";
   self.picker = picker;
   
   //Ipad popover is not affected by rotation!
-  if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
+    
+  if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad)
   {
     screenWidth = CGRectGetWidth(picker.view.bounds);
     screenHeight = CGRectGetHeight(picker.view.bounds);
   }
   else
   {
-    if(UIInterfaceOrientationIsLandscape([UIApplication sharedApplication].statusBarOrientation))
+    if([self isLandscape])
     {
       screenHeight = CGRectGetWidth(picker.view.bounds);
       screenWidth = CGRectGetHeight(picker.view.bounds);
@@ -101,7 +132,7 @@ NSString * const GMGridViewCellIdentifier = @"GMGridViewCellIdentifier";
   }
   
   
-  UICollectionViewFlowLayout *layout = [self collectionViewFlowLayoutForOrientation:[UIApplication sharedApplication].statusBarOrientation];
+  UICollectionViewFlowLayout *layout = [self collectionViewFlowLayoutForOrientation:[self interfaceOrientationFromScreen]];
   if (self = [super initWithCollectionViewLayout:layout])
   {
     //Compute the thumbnail pixel size:
@@ -190,39 +221,41 @@ NSString * const GMGridViewCellIdentifier = @"GMGridViewCellIdentifier";
 
 #pragma mark - Rotation
 
-- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
-{
-  if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
-    return;
-  }
-  
-  UICollectionViewFlowLayout *layout = [self collectionViewFlowLayoutForOrientation:toInterfaceOrientation];
-  
-  //Update the AssetGridThumbnailSize:
-  CGFloat scale = [UIScreen mainScreen].scale;
-  AssetGridThumbnailSize = CGSizeMake(layout.itemSize.width * scale, layout.itemSize.height * scale);
-  
-  [self resetCachedAssets];
-  //This is optional. Reload visible thumbnails:
-  for (GMGridViewCell *cell in [self.collectionView visibleCells]) {
-    NSInteger currentTag = cell.tag;
-    [cell.imageView setImage:[UIImage imageNamed:@"GMEmptyFolder"]];
-    [self.imageManager requestImageForAsset:cell.asset
-                                 targetSize:AssetGridThumbnailSize
-                                contentMode:PHImageContentModeAspectFit
-                                    options:self.thumbnailRequestOptions
-                              resultHandler:^(UIImage *result, NSDictionary *info)
-     {
-       // Only update the thumbnail if the cell tag hasn't changed. Otherwise, the cell has been re-used.
-       if (cell.tag == currentTag) {
-         [cell.imageView setImage:(result ?: [UIImage imageNamed:@"GMEmptyFolder"])];
-       }
-     }];
-  }
-  
-  [self.collectionView setCollectionViewLayout:layout animated:YES];
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext>  _Nonnull context) {
+        
+        if ([UIDevice.currentDevice userInterfaceIdiom] == UIUserInterfaceIdiomPad) {
+            return;
+        }
+        
+        UICollectionViewFlowLayout *layout = [self collectionViewFlowLayoutForOrientation:[self interfaceOrientationFromScreen]];
+        
+        //Update the AssetGridThumbnailSize:
+        CGFloat scale = [UIScreen mainScreen].scale;
+        AssetGridThumbnailSize = CGSizeMake(layout.itemSize.width * scale, layout.itemSize.height * scale);
+        
+        [self resetCachedAssets];
+        //This is optional. Reload visible thumbnails:
+        for (GMGridViewCell *cell in [self.collectionView visibleCells]) {
+          NSInteger currentTag = cell.tag;
+          [cell.imageView setImage:[UIImage imageNamed:@"GMEmptyFolder"]];
+          [self.imageManager requestImageForAsset:cell.asset
+                                       targetSize:AssetGridThumbnailSize
+                                      contentMode:PHImageContentModeAspectFit
+                                          options:self.thumbnailRequestOptions
+                                    resultHandler:^(UIImage *result, NSDictionary *info)
+           {
+             // Only update the thumbnail if the cell tag hasn't changed. Otherwise, the cell has been re-used.
+             if (cell.tag == currentTag) {
+               [cell.imageView setImage:(result ?: [UIImage imageNamed:@"GMEmptyFolder"])];
+             }
+           }];
+        }
+        
+        [self.collectionView setCollectionViewLayout:layout animated:YES];
+        } completion:nil];
 }
-
 
 #pragma mark - Setup
 
@@ -269,7 +302,7 @@ NSString * const GMGridViewCellIdentifier = @"GMGridViewCellIdentifier";
 
 - (UICollectionViewFlowLayout *)collectionViewFlowLayoutForOrientation:(UIInterfaceOrientation)orientation
 {
-  if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad)
+  if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad)
   {
     if(!portraitLayout)
     {

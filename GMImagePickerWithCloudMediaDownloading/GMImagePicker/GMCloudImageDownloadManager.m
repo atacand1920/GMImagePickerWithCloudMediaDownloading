@@ -37,68 +37,73 @@ static GMCloudImageDownloadManager *shared = nil;
 }
 
 - (PHImageRequestID)startFullImageDownalodForAsset:(PHAsset *)asset {
-   __block PHAsset *phAsset = asset;
-  if (asset.mediaType == PHAssetMediaTypeImage) {
-  //TDTLogInfo("GMImagePicker : Start iCould fetch for asset - %@", asset.localIdentifier);
+    __block PHAsset *phAsset = asset;
+    if (asset.mediaType == PHAssetMediaTypeImage) {
+        //TDTLogInfo("GMImagePicker : Start iCould fetch for asset - %@", asset.localIdentifier);
         PHImageRequestOptions *options = [PHImageRequestOptions new];
         [options setNetworkAccessAllowed:YES];
         [options setSynchronous:NO];
-
+        
         __weak typeof(self) weakSelf = self;
-        PHImageRequestID requestID = [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData * _Nullable imageData, NSString * _Nullable dataUTI, UIImageOrientation orientation, NSDictionary * _Nullable info) {
-        //TDTLogInfo("GMImagePicker : Finished iCould fetch for asset - %@", asset.localIdentifier);
-        weakSelf.mapAssetIDWithPHRequestID[phAsset.localIdentifier] = nil;
-            if(imageData)
-                [[NSNotificationCenter defaultCenter] postNotificationName:GMCloudImageDownloadCompleteNotification
-                                                                object:weakSelf
-                                                              userInfo:@{@"asset":phAsset}];
+        PHImageRequestID requestID = [[PHImageManager defaultManager] requestImageForAsset:asset 
+                                                                                targetSize:PHImageManagerMaximumSize 
+                                                                               contentMode:PHImageContentModeDefault 
+                                                                                   options:options 
+                                                                             resultHandler:^(UIImage * _Nullable result, NSDictionary * _Nullable info) {
+            weakSelf.mapAssetIDWithPHRequestID[phAsset.localIdentifier] = nil;
+            if(result)
+                [[NSNotificationCenter defaultCenter] postNotificationName:GMCloudImageDownloadCompleteNotification 
+                                                                    object:weakSelf 
+                                                                  userInfo:@{@"asset":phAsset}];
             else
                 [[NSNotificationCenter defaultCenter] postNotificationName:GMCloudImageDownloadCompleteNotification
-                                                                object:weakSelf
-                                                              userInfo:info];
+                                                                    object:weakSelf
+                                                                  userInfo:info];
+            
         }];
         self.mapAssetIDWithPHRequestID[asset.localIdentifier] = @(requestID);
         return requestID;
-  }
-  else if (asset.mediaType == PHAssetMediaTypeVideo){
-      __weak typeof(self) weakSelf = self;
-      PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
-      options.version = PHVideoRequestOptionsVersionOriginal;
-      //options.deliveryMode = PHVideoRequestOptionsDeliveryModeFastFormat;
-      options.networkAccessAllowed = YES;
-      PHImageRequestID requestID = [PHImageManager.defaultManager requestAVAssetForVideo:phAsset options:options resultHandler:^(AVAsset *asset, AVAudioMix *audioMix, NSDictionary *info) {
-          weakSelf.mapAssetIDWithPHRequestID[phAsset.localIdentifier] = nil;
-          
-          if ([asset isKindOfClass:AVURLAsset.class]){
-            [[NSNotificationCenter defaultCenter] postNotificationName:GMCloudImageDownloadCompleteNotification object:weakSelf userInfo:@{@"asset":phAsset}];
-          }
-          else
-            [[NSNotificationCenter defaultCenter] postNotificationName:GMCloudImageDownloadCompleteNotification object:weakSelf userInfo:info];
-      }];
-      self.mapAssetIDWithPHRequestID[asset.localIdentifier] = @(requestID);
-      return requestID;
-  }
-  else{
-      return 0;
-  }
+    }
+    else if (asset.mediaType == PHAssetMediaTypeVideo){
+        __weak typeof(self) weakSelf = self;
+        PHVideoRequestOptions *options = [[PHVideoRequestOptions alloc] init];
+        options.version = PHVideoRequestOptionsVersionOriginal;
+        //options.deliveryMode = PHVideoRequestOptionsDeliveryModeFastFormat;
+        options.networkAccessAllowed = YES;
+        PHImageRequestID requestID = [PHImageManager.defaultManager requestAVAssetForVideo:phAsset options:options resultHandler:^(AVAsset *asset, AVAudioMix *audioMix, NSDictionary *info) {
+            weakSelf.mapAssetIDWithPHRequestID[phAsset.localIdentifier] = nil;
+            
+            if ([asset isKindOfClass:AVURLAsset.class]){
+                [[NSNotificationCenter defaultCenter] postNotificationName:GMCloudImageDownloadCompleteNotification object:weakSelf userInfo:@{@"asset":phAsset}];
+            }
+            else
+                [[NSNotificationCenter defaultCenter] postNotificationName:GMCloudImageDownloadCompleteNotification object:weakSelf userInfo:info];
+        }];
+        self.mapAssetIDWithPHRequestID[asset.localIdentifier] = @(requestID);
+        return requestID;
+    }
+    else{
+        return 0;
+    }
 }
 
 - (BOOL)isFullSizedImageAvailableForAsset:(PHAsset *)asset {
-  //TDTLogInfo("GMImagePicker : Checking is full sized image available for asset - %@", asset.localIdentifier);
-  __block BOOL fullSizedImageDataAvaiable = NO;
-  // I suspect even setSynchronous = YES, might execute the resultHandler
-  // AFTER 'requestImageDataForAsset' call completes, hence making this
-  // function broken
-  __block BOOL isSynchronusFlagWorking = NO;
+    //TDTLogInfo("GMImagePicker : Checking is full sized image available for asset - %@", asset.localIdentifier);
+    __block BOOL fullSizedImageDataAvaiable = NO;
+    // I suspect even setSynchronous = YES, might execute the resultHandler
+    // AFTER 'requestImageDataForAsset' call completes, hence making this
+    // function broken
+    __block BOOL isSynchronusFlagWorking = NO;
     
     if(asset.mediaType == PHAssetMediaTypeImage){
         PHImageRequestOptions *options = [PHImageRequestOptions new];
         [options setNetworkAccessAllowed:NO];
         [options setSynchronous:YES];
-
-        [[PHImageManager defaultManager] requestImageDataForAsset:asset options:options resultHandler:^(NSData * _Nullable imageData, NSString * _Nullable dataUTI, UIImageOrientation orientation, NSDictionary * _Nullable info) {
-        isSynchronusFlagWorking = YES;
-        fullSizedImageDataAvaiable = imageData != nil;
+        
+        
+        [[PHImageManager defaultManager] requestImageForAsset:asset targetSize:PHImageManagerMaximumSize contentMode:PHImageContentModeDefault options:options resultHandler:^(UIImage * _Nullable result, NSDictionary * _Nullable info) {
+            isSynchronusFlagWorking = YES;
+            fullSizedImageDataAvaiable = result != nil;
         }];
     }
     else if(asset.mediaType == PHAssetMediaTypeVideo){
@@ -110,11 +115,11 @@ static GMCloudImageDownloadManager *shared = nil;
             fullSizedImageDataAvaiable = asset != nil;
             dispatch_semaphore_signal(semaphore);
         }];
-         dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+        dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     }
     
-  //TDTLogInfo("GMImagePicker : Is 'setSynchronous:YES' working as expected : %@",[NSNumber numberWithBool:isSynchronusFlagWorking]);
-  //TDTLogInfo("GMImagePicker : Full sized image exits locally - %@, for asset - %@", [NSNumber numberWithBool:fullSizedImageDataAvaiable], asset.localIdentifier);
-  return fullSizedImageDataAvaiable;
+    //TDTLogInfo("GMImagePicker : Is 'setSynchronous:YES' working as expected : %@",[NSNumber numberWithBool:isSynchronusFlagWorking]);
+    //TDTLogInfo("GMImagePicker : Full sized image exits locally - %@, for asset - %@", [NSNumber numberWithBool:fullSizedImageDataAvaiable], asset.localIdentifier);
+    return fullSizedImageDataAvaiable;
 }
 @end
